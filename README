@@ -1,0 +1,286 @@
+File_NFSLock - bdpO - NFS compatible (safe) locking utility
+
+Copyright (C) 2010, Dave Buchanan
+                    dos@joesvolcano.net
+                    http://joesvolcano.net/open_source/
+
+                    Paul T Seamons
+                    paul@seamons.com
+                    http://seamons.com/
+
+                    Rob B Brown
+                    bbb@cpan.org
+
+This package may be distributed under the terms of either the
+GNU General Public License
+  or the
+Perl Artistic License
+
+All rights reserved.
+
+*******************************************************
+
+---   FULL DOCUMENTATION  ---
+
+---   NAME
+
+File_NFSLock - perl module to do NFS (or not) locking
+
+---   SYNOPSIS
+
+  require_once('File_NFSLock.class.php');
+
+  $file = "somefile";
+
+  ### set up a lock - lasts until object looses scope
+  $lock = new File_NFSLock( array( 'file'               => $file,
+                                   'lock_type'          => NFS_LOCK_EX|NFS_LOCK_NB,
+                                   'blocking_timeout'   => 10,      # 10 sec
+                                   'stale_lock_timeout' => 30 * 60, # 30 min
+                                   )
+                            );
+  if ( $lock->lock_success ) {
+
+    ### OR
+    ### $lock = File_NFSLock->new($file,NFS_LOCK_EX|NFS_LOCK_NB,10,30*60);
+
+    ### do write protected stuff on $file
+    ### at this point $file is uncached from NFS (most recent)
+    $FILE = fopen($file, "r+");
+
+    ### or open it any way you like
+    ### file_get_contents( $file, "Foo" );
+
+    ### update (uncache across NFS) other files
+    $lock->uncache("someotherfile1");
+    nfs_uncache("someotherfile2");
+    # $FILE2 = fopen("someotherfile1", 'r+');
+
+    ### unlock it
+    $lock->unlock();
+    ### OR
+    ### unset( $lock );
+    ### OR when lock object is garbage collected, it's __destruct() will un-lock
+  }else{
+    return trigger_error("I couldn't lock the file [$lock->errstr]", E_USER_ERROR);
+  }
+
+
+---   DESCRIPTION
+
+Program based of concept of hard linking of files being atomic across
+NFS.  This concept was mentioned in Mail__Box__Locker (which was
+originally presented in Mail__Folder__Maildir).  Some routine flow is
+taken from there -- particularly the idea of creating a random local
+file, hard linking a common file to the local file, and then checking
+the nlink status.  Some ideologies were not complete (uncache
+mechanism, shared locking) and some coding was even incorrect (wrong
+stat index).  File_NFSLock was written to be light, generic,
+and fast.
+
+
+---   USAGE
+
+Locking occurs by creating a File_NFSLock object.  If the object
+is created successfully, a lock is currently in place and remains in
+place until the lock object goes out of scope (or calls the unlock
+method).
+
+A lock object is created by calling the new method and passing two
+to four parameters in the following manner:
+
+  $lock = File_NFSLock->new($file,
+                             $lock_type,
+                             $blocking_timeout,
+                             $stale_lock_timeout,
+                             );
+
+Additionally, parameters may be passed as a hashref:
+
+  $lock = File_NFSLock->new(array(
+    'file'               => $file,
+    'lock_type'          => $lock_type,
+    'blocking_timeout'   => $blocking_timeout,
+    'stale_lock_timeout' => $stale_lock_timeout,
+  ));
+
+---   PARAMETERS
+
+    ---  Parameter 1: file
+    
+    Filename of the file upon which it is anticipated that a write will
+    happen to.  Locking will provide the most recent version (uncached)
+    of this file upon a successful file lock.  It is not necessary
+    for this file to exist.
+    
+    ---  Parameter 2: lock_type
+    
+    Lock type must be one of the following:
+    
+      BLOCKING
+      BL
+      EXCLUSIVE (BLOCKING)
+      EX
+      NONBLOCKING
+      NB
+      SHARED
+      SH
+    
+    Or else one or more of the following joined with '|':
+    
+      Fcntl__NFS_LOCK_EX() (BLOCKING)
+      Fcntl__NFS_LOCK_NB() (NONBLOCKING)
+      Fcntl__NFS_LOCK_SH() (SHARED)
+    
+    Lock type determines whether the lock will be blocking, non blocking,
+    or shared.  Blocking locks will wait until other locks are removed
+    before the process continues.  Non blocking locks will return undef if
+    another process currently has the lock.  Shared will allow other
+    process to do a shared lock at the same time as long as there is not
+    already an exclusive lock obtained.
+    
+    ---  Parameter 3: blocking_timeout (optional)
+    
+    Timeout is used in conjunction with a blocking timeout.  If specified,
+    File_NFSLock will block up to the number of seconds specified in
+    timeout before returning undef (could not get a lock).
+    
+    
+    ---  Parameter 4: stale_lock_timeout (optional)
+    
+    Timeout is used to see if an existing lock file is older than the stale
+    lock timeout.  If do_lock fails to get a lock, the modified time is checked
+    and do_lock is attempted again.  If the stale_lock_timeout is set to low, a
+    recursion load could exist so do_lock will only recurse 10 times (this is only
+    a problem if the stale_lock_timeout is set too low -- on the order of one or two
+    seconds).
+
+---   METHODS
+
+After the $lock object is instantiated with new,
+as outlined above, some methods may be used for
+additional functionality.
+
+    ---  unlock
+    
+      $lock->unlock;
+    
+    This method may be used to explicitly release a lock
+    that is aquired.  In most cases, it is not necessary
+    to call unlock directly since it will implicitly be
+    called when the object leaves whatever scope it is in.
+    
+    ---  uncache
+    
+      $lock->uncache;
+      $lock->uncache("otherfile1");
+      nfs_uncache("otherfile2");
+    
+    This method is used to freshen up the contents of a
+    file across NFS, ignoring what is contained in the
+    NFS client cache.  It is always called from within
+    the new constructor on the file that the lock is
+    being attempted.  uncache may be used as either an
+    object method or as a stand alone subroutine (named nfs_uncache()).
+    
+    ---  newpid
+    
+      $pid = fork;
+      if ( $pid == -1) ) {
+        # Fork Failed
+      } else if ($pid != 0) {
+        $lock->newpid; # Parent
+      } else {
+        $lock->newpid; # Child
+      }
+    
+    If fork() is called after a lock has been aquired,
+    then when the lock object leaves scope in either
+    the parent or child, it will be released.  This
+    behavior may be inappropriate for your application.
+    To delegate ownership of the lock from the parent
+    to the child, both the parent and child process
+    must call the newpid() method after a successful
+    fork() call.  This will prevent the parent from
+    releasing the lock when unlock is called or when
+    the lock object leaves scope.  This is also
+    useful to allow the parent to fail on subsequent
+    lock attempts if the child lock is still aquired.
+
+---   FAILURE
+
+On failure, a class variable, "errstr", should be set and should
+contain the cause for the failure to get a lock.  Useful primarily for debugging.
+
+---   LOCK_EXTENSION
+
+By default File::NFSLock will use a lock file extenstion of
+".NFSLock".  This may be changed by passing in a custom array
+key 'lock_extension', using the array object instantiation
+syntax, to suit other purposes (such as compatibility in mail
+systems).
+
+---   BUGS
+
+Notify dos@joesvolcano.net if you spot anything.
+
+    ---  FIFO
+    
+    Locks are not necessarily obtained on a first come first serve basis.
+    Not only does this not seem fair to new processes trying to obtain a lock,
+    but it may cause a process starvation condition on heavily locked files.
+    
+    
+    ---  DIRECTORIES
+    
+    Locks cannot be obtained on directory nodes, nor can a directory node be
+    uncached with the uncache routine because hard links do not work with
+    directory nodes.  Some other algorithm might be used to uncache a
+    directory, but I am unaware of the best way to do it.  The biggest use I
+    can see would be to avoid NFS cache of directory modified and last accessed
+    timestamps.
+
+---   INSTALL
+
+Uhm, for now, just put File_NFSLock.class.php somewhere that you can require() 
+it, and have fun!
+
+---   AUTHORS
+
+Dave Buchanan (dos@joesvolcano.net) - Ported to PHP from Perl
+
+Paul T Seamons (paul@seamons.com) - Performed majority of the Perl
+programming with copious amounts of input from Rob Brown.
+
+Rob B Brown (bbb@cpan.org) - In addition to helping in the
+programming, Rob Brown provided most of the core testing to make sure
+implementation worked properly.  He is now the current maintainer.
+
+Also Mark Overmeer (mark@overmeer.net) - Author of Mail::Box::Locker,
+from which some key concepts for File::NFSLock were taken.
+
+Also Kevin Johnson (kjj@pobox.com) - Author of Mail::Folder::Maildir,
+from which Mark Overmeer based Mail::Box::Locker.
+
+---   COPYRIGHT
+
+  Copyright (C) 2010
+  Dave Buchanan
+  dos@joesvolcano.net
+  http://joesvolcano.net/open_source/
+
+  Copyright (C) 2001
+  Paul T Seamons
+  paul@seamons.com
+  http://seamons.com/
+
+  Copyright (C) 2002-2003,
+  Rob B Brown
+  bbb@cpan.org
+
+  This package may be distributed under the terms of either the
+  GNU General Public License
+    or the
+  Perl Artistic License
+
+  All rights reserved.
