@@ -15,7 +15,7 @@ foreach ( range(1, $i) as $ii ) {
     if ( ! $lock->lock_success ) echo "Ouch!\n"; # blocking lock (Exclusive)
 
     ### read the count and spit it out
-    $FH = fopen($file, "c+");
+    $FH = fopen($file, "r+");
     $count = fread( $FH, 4096 );
     $count++;
 
