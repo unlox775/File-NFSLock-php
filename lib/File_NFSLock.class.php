@@ -412,6 +412,7 @@ class File_NFSLock {
             if ( $line == $lock_line ) continue;
             $content .= $line;
           }
+          if ( $read === false && strlen($buffer) == 0 ) break; # save an fread()
       }
     
       ### other shared locks exist
