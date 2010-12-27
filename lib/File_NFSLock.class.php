@@ -2,7 +2,7 @@
 
 /*  File_NFSLock - bdpO - NFS compatible (safe) locking utility
  *  
- *  $Id: File_NFSLock.class.php,v 1.4 2010/11/22 19:08:00 dave Exp $
+ *  $Id: File_NFSLock.class.php,v 1.5 2010/12/27 19:18:07 dave Exp $
  *  
  *  Copyright (C) 2010, Dave Buchanan
  *                      dos@joesvolcano.net
@@ -301,7 +301,7 @@ class File_NFSLock {
       if ( is_null($append_file) ) $append_file = $this->rand_file;
       $this->errstr = null;
       if ( empty($this->lock_line) ) $this->lock_line = $this->HOSTNAME." $this->lock_pid ".time()." ".floor(rand(0,10000))."\n";
-      $success = file_put_contents($append_file, $this->lock_line, FILE_APPEND);
+      @$success = file_put_contents($append_file, $this->lock_line, FILE_APPEND);
       if ( $success === false ) {
           $this->errstr = "Couldn't open \"$append_file\" [$!]";
           return false;
