@@ -48,6 +48,7 @@ class File_NFSLock {
     var $SHARE_BIT = 1;
     var $errstr = null;
     var $rand_file = null;
+    var $unlocked = true;
     public $lock_success = false;
 
     function __construct($file, $lock_type = null, $blocking_timeout = null, $stale_lock_timeout = null ) {
@@ -266,9 +267,9 @@ class File_NFSLock {
       if ( ! $this->unlocked) {
         if ( file_exists($this->rand_file) ) unlink( $this->rand_file );
         if( ( $this->lock_type & NFS_LOCK_SH) != 0 ){
-            return $this->do_unlock_shared();
+            $retval = $this->do_unlock_shared();
         }else{
-            return $this->do_unlock();
+            $retval = $this->do_unlock();
         }
         $this->unlocked = true;
 ######  Disabled Signals for now
@@ -283,6 +284,7 @@ class File_NFSLock {
 ###              delete $SIG[$signal];
 ###            }
 ###          }
+        return $retval;
       }
       return true;
     }
