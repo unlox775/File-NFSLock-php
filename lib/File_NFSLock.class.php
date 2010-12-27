@@ -105,9 +105,11 @@ class File_NFSLock {
       ### choose the lock filename
       $this->lock_file = $this->file . $this->LOCK_EXTENSION;
     
-      $quit_time = $this->blocking_timeout &&
-          ( ($this->lock_type & NFS_LOCK_NB) == 0) ?
-          time() + $this->blocking_timeout : 0;
+      $quit_time = ( ( ! empty( $this->blocking_timeout ) &&
+                     ( ($this->lock_type & NFS_LOCK_NB) == 0) )
+                     ? ( time() + $this->blocking_timeout )
+                     : 0
+                     );
     
       ### remove an old lockfile if it is older than the stale_timeout
       if( file_exists($this->lock_file) &&
@@ -241,7 +243,7 @@ class File_NFSLock {
         sleep(1);
     
         ### but don't wait past the time out
-        if( ! empty( $quit_time ) && (time > $quit_time) ){
+        if( ! empty( $quit_time ) && (time() > $quit_time) ){
           $errstr = "Timed out waiting for blocking lock";
           return false;
         }
@@ -448,7 +450,7 @@ class File_NFSLock {
     
         # Must wait for child to call newpid before processing.
         # A little patience for the child to call newpid
-        $patience = time + 10;
+        $patience = time() + 10;
         while (time() < $patience) {
           if (rename("$this->lock_file.fork",$this->rand_file)) {
             # Child finished its newpid call.
