@@ -2,7 +2,7 @@
 
 /*  File_NFSLock - bdpO - NFS compatible (safe) locking utility
  *  
- *  $Id: File_NFSLock.class.php,v 1.2 2010/11/20 08:00:11 dave Exp $
+ *  $Id: File_NFSLock.class.php,v 1.4 2010/11/22 19:08:00 dave Exp $
  *  
  *  Copyright (C) 2010, Dave Buchanan
  *                      dos@joesvolcano.net
@@ -53,12 +53,12 @@ class File_NFSLock {
     function __construct($file, $lock_type = null, $blocking_timeout = null, $stale_lock_timeout = null ) {
       ###  Allow params passed by array
       $args = func_get_args();
-      if ( count( $args ) == 1 && is_array($args) ) {
-          if ( isset( $args['file']               ) ) $file                 = $args['file'];
-          if ( isset( $args['lock_type']          ) ) $lock_type            = $args['lock_type'];
-          if ( isset( $args['blocking_timeout']   ) ) $blocking_timeout     = $args['blocking_timeout'];
-          if ( isset( $args['stale_lock_timeout'] ) ) $stale_lock_timeout   = $args['stale_lock_timeout'];
-          if ( isset( $args['lock_extension']     ) ) $this->LOCK_EXTENSION = $args['lock_extension'];
+      if ( count( $args ) == 1 && is_array($args[0]) ) {
+          if ( isset( $args[0]['file']               ) ) $file                 = $args[0]['file'];
+          if ( isset( $args[0]['lock_type']          ) ) $lock_type            = $args[0]['lock_type'];
+          if ( isset( $args[0]['blocking_timeout']   ) ) $blocking_timeout     = $args[0]['blocking_timeout'];
+          if ( isset( $args[0]['stale_lock_timeout'] ) ) $stale_lock_timeout   = $args[0]['stale_lock_timeout'];
+          if ( isset( $args[0]['lock_extension']     ) ) $this->LOCK_EXTENSION = $args[0]['lock_extension'];
       }
     
       list( $this->file, $this->lock_type, $this->blocking_timeout, $this->stale_lock_timeout ) = 
